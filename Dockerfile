@@ -41,7 +41,8 @@ LABEL org.opencontainers.image.documentation='https://github.com/benphelps/homep
 LABEL org.opencontainers.image.source='https://github.com/benphelps/homepage'
 LABEL org.opencontainers.image.licenses='Apache-2.0'
 
-ENV NODE_ENV production
+# ENV NODE_ENV production
+ENV NODE_ENV development
 
 WORKDIR /app
 

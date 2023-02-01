@@ -45,6 +45,33 @@ export async function servicesFromConfig() {
   return servicesArray;
 }
 
+function mapDefaults(constructedService) {
+    const mapping = { 
+      "grafana": { name: null, group: "Telemetry", icon: "grafana", description: "Amazing dashboards and alerts" }, 
+      "prometheus": { name: null, group: "Telemetry", icon: "prometheus", description: "Collects all the data from your apps and hosts" }, 
+      "gotify": { name: null, group: "Misc", icon: "gotify", description: "We have push messages at home!" }, 
+      "node-red": { name: "Node-RED", group: "Development", icon: "nodered", description: "Low code for you" }, 
+      "openaudible": { name: null, group: "Media", icon: "amazon", description: "Manage your audiobooks" }, 
+      "audiobookshelf": { name: null, group: "Media", icon: "audiobookshelf", description: null }, 
+      "pihole": { name: null, group: "Infrastructure", icon: "pihole", description: "Block all the ads" }, 
+      "smokeping": { name: null, group: "Infrastructure", icon: "smokeping", description: "Test your internet connection" }, 
+      "speedtest-tracker": { name: null, group: "Infrastructure", icon: "speedtest-tracker", description: "Test your internet connection speed" }, 
+      "vaultwarden": { name: null, group: "Misc", icon: "vaultwarden", description: "Password manager" }, 
+      "vscode-server": { name: null, group: "Development", icon: "code", description: "Visual Studio Code in a webbrowser" }, 
+      "whoami": { name: null, group: "Infrastructure", icon: "mdi-help-network-outline", description: null}, 
+      "homepage": { name: null, group: "Misc", icon: "homepage", description: "A highly customizable homepage (or startpage / application dashboard) with Docker and service API integrations."}, 
+      "sui": { name: null, group: "Misc", icon: "homepage", description: "An application dashboard."}, 
+  }
+
+  const map = mapping[constructedService.container];
+  if(map) {
+    if(map.name) shvl.set(constructedService, "name", map.name);
+    if(map.group) shvl.set(constructedService, "group", map.group);
+    if(map.icon) shvl.set(constructedService, "icon", map.icon);
+    if(map.description) shvl.set(constructedService, "description", map.description);
+  }
+}
+
 export async function servicesFromDocker() {
   checkAndCopyConfig("docker.yaml");
 
@@ -72,6 +99,49 @@ export async function servicesFromDocker() {
 
         const discovered = containers.map((container) => {
           let constructedService = null;
+
+          Object.keys(container.Labels).forEach((label) => {
+            if (label.startsWith("traefik.")) {
+              const containerName = container.Names[0].replace(/^\//, "");
+
+              if (!constructedService) {
+                constructedService = {
+                  container: containerName,
+                  server: serverName,
+                };
+              }
+              // shvl.set(constructedService, label.replace("homepage.", ""), container.Labels[label]);
+
+              shvl.set(constructedService, "group", "Traefik Autodiscovery");
+              shvl.set(constructedService, "name", containerName.replace(/^[a-z]/, s => s[0].toUpperCase())); // Capitalize first char
+              // shvl.set(constructedService, "icon", "emby.png");
+              // shvl.set(constructedService, "href", "http://emby.home/");
+              if(/^traefik\.http\.routers\..*\.rule$/.test(label) ) {
+                const routerRules = container.Labels[label];
+                const matches = /^Host\(`(.*?)`[,)]{1}.*/gi.exec(routerRules);
+
+                shvl.set(constructedService, "href", `https://${matches[1] || matches[0]}`);
+              }
+
+              const description = container.Labels["org.opencontainers.image.description"];
+              if(description) {
+                shvl.set(constructedService, "description", description);
+              }
+
+              mapDefaults(constructedService);
+
+
+              
+
+              /*
+      - homepage.group=Media
+      - homepage.name=Emby
+      - homepage.icon=emby.png
+      - homepage.href=http://emby.home/
+      - homepage.description=Media server
+              */
+            }
+          });
 
           Object.keys(container.Labels).forEach((label) => {
             if (label.startsWith("homepage.")) {
